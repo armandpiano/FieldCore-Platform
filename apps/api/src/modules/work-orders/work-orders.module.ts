@@ -1,26 +1,29 @@
-/**
- * WorkOrdersModule - Work Orders Feature Module
- */
-
 import { Module } from '@nestjs/common';
+import { PassportModule } from '@nestjs/passport';
+
+// Application
+import { WorkOrderService } from './application/services/work-order.service';
+
+// Interface
 import { WorkOrdersController } from './interface/controllers/work-orders.controller';
-import { CreateWorkOrderUseCase } from './application/use-cases/create-work-order.usecase';
-import { ListWorkOrdersUseCase } from './application/use-cases/list-work-orders.usecase';
-import { GetWorkOrderDetailUseCase } from './application/use-cases/get-work-order-detail.usecase';
-import { AssignTechnicianUseCase } from './application/use-cases/assign-technician.usecase';
-import { StartServiceUseCase } from './application/use-cases/start-service.usecase';
-import { CompleteWorkOrderUseCase } from './application/use-cases/complete-work-order.usecase';
+
+// Infrastructure
+import { PrismaWorkOrderRepository } from './infrastructure/persistence/prisma-work-order.repository';
+import { PrismaWorkOrderEventRepository } from './infrastructure/persistence/prisma-work-order-event.repository';
 
 @Module({
+  imports: [
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+  ],
   controllers: [WorkOrdersController],
   providers: [
-    CreateWorkOrderUseCase,
-    ListWorkOrdersUseCase,
-    GetWorkOrderDetailUseCase,
-    AssignTechnicianUseCase,
-    StartServiceUseCase,
-    CompleteWorkOrderUseCase,
+    // Services
+    WorkOrderService,
+
+    // Repositories
+    PrismaWorkOrderRepository,
+    PrismaWorkOrderEventRepository,
   ],
-  exports: [],
+  exports: [WorkOrderService],
 })
 export class WorkOrdersModule {}

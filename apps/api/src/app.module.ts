@@ -13,6 +13,7 @@ import { PrismaModule } from './shared/infrastructure/database/prisma.module';
 import { RedisModule } from './shared/infrastructure/cache/redis.module';
 import { HealthModule } from './modules/health/health.module';
 import { IdentityModule } from './modules/identity/identity.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { TechniciansModule } from './modules/technicians/technicians.module';
@@ -51,6 +52,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     // Feature Modules
     HealthModule,
     IdentityModule,
+    OrganizationsModule,
     WorkOrdersModule,
     ClientsModule,
     TechniciansModule,

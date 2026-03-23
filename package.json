@@ -1,0 +1,55 @@
+{
+  "name": "fieldcore-platform",
+  "version": "0.0.1",
+  "private": true,
+  "description": "SaaS B2B platform for field operations management",
+  "author": "Armando Vazquez <armancma777@gmail.com>",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/armandpiano/FieldCore-Platform"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:web": "turbo dev --filter=web",
+    "dev:api": "turbo dev --filter=api",
+    "build": "turbo build",
+    "build:web": "turbo build --filter=web",
+    "build:api": "turbo build --filter=api",
+    "test": "turbo test",
+    "test:watch": "turbo test -- --watch",
+    "test:ci": "turbo test -- --ci",
+    "lint": "turbo lint",
+    "lint:fix": "turbo lint -- --fix",
+    "typecheck": "turbo typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
+    "db:migrate": "turbo run db:migrate --filter=api",
+    "db:migrate:dev": "turbo run db:migrate:dev --filter=api",
+    "db:seed": "turbo run db:seed --filter=api",
+    "db:studio": "turbo run db:studio --filter=api",
+    "db:reset": "turbo run db:reset --filter=api",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "turbo": "^1.11.3",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0",
+    "@commitlint/cli": "^18.4.3",
+    "@commitlint/config-conventional": "^18.4.3",
+    "prettier": "^3.1.1"
+  },
+  "packageManager": "pnpm@8.10.5",
+  "pnpm": {
+    "overrides": {
+      "typescript": "^5.3.3"
+    }
+  }
+}

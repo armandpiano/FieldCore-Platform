@@ -1,35 +1,15 @@
-/**
- * CurrentUser Decorator
- */
-
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-
-export interface CurrentUserData {
-  id: string;
-  email: string;
-  organizationId: string;
-  role: string;
-}
+import { AuthenticatedUser } from '../../modules/identity/interface/strategies/jwt.strategy';
 
 export const CurrentUser = createParamDecorator(
-  (data: keyof CurrentUserData | undefined, ctx: ExecutionContext) => {
+  (data: keyof AuthenticatedUser | undefined, ctx: ExecutionContext) => {
     const request = ctx.switchToHttp().getRequest();
-    const user = request.user as CurrentUserData;
-    return data ? user?.[data] : user;
-  },
-);
+    const user: AuthenticatedUser = request.user;
 
-export const OrganizationId = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext): string => {
-    const request = ctx.switchToHttp().getRequest();
-    return request.user?.organizationId;
-  },
-);
-
-export const Public = () => {
-  return (target: any, key?: string, descriptor?: PropertyDescriptor) => {
-    if (descriptor) {
-      Reflect.defineMetadata('isPublic', true, descriptor.value);
+    if (!user) {
+      return null;
     }
-  };
-};
+
+    return data ? user[data] : user;
+  },
+);

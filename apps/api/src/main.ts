@@ -3,7 +3,7 @@
  * NestJS Application Entry Point
  */
 
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
@@ -12,12 +12,16 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './shared/interface/filters/http-exception.filter';
 import { LoggingInterceptor } from './shared/interface/interceptors/logging.interceptor';
 import { TransformInterceptor } from './shared/interface/interceptors/transform.interceptor';
+import { JwtAuthGuard } from './modules/identity/interface/guards/jwt-auth.guard';
+import { RolesGuard } from './modules/identity/interface/guards/roles.guard';
+import { OrganizationGuard } from './modules/identity/interface/guards/organization.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
 
+  const reflector = app.get(Reflector);
   const configService = app.get(ConfigService);
   const port = configService.get('PORT', '3001');
   const host = configService.get('HOST', '0.0.0.0');
@@ -63,6 +67,13 @@ async function bootstrap() {
     new TransformInterceptor(),
   );
 
+  // Global Guards
+  app.useGlobalGuards(
+    new JwtAuthGuard(reflector),
+    new RolesGuard(reflector),
+    new OrganizationGuard(reflector),
+  );
+
   // Swagger Documentation
   const swaggerConfig = new DocumentBuilder()
     .setTitle('FieldCore API')
@@ -70,6 +81,7 @@ async function bootstrap() {
     .setVersion('1.0')
     .addBearerAuth()
     .addTag('auth', 'Autenticación')
+    .addTag('users', 'Gestión de Usuarios')
     .addTag('work-orders', 'Órdenes de trabajo')
     .addTag('clients', 'Clientes')
     .addTag('technicians', 'Técnicos')

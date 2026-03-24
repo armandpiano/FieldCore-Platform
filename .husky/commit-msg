@@ -1,0 +1,57 @@
+#!/usr/bin/env sh
+# Commit-msg hook - validates commit messages against conventional commits
+
+echo "📝 Validating commit message..."
+
+# Get the commit message file path
+COMMIT_MSG_FILE=$1
+
+# Check if file exists
+if [ ! -f "$COMMIT_MSG_FILE" ]; then
+    echo "❌ Commit message file not found: $COMMIT_MSG_FILE"
+    exit 1
+fi
+
+# Read commit message
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Basic validation (length)
+if [ ${#COMMIT_MSG} -gt 100 ]; then
+    echo "⚠️  Warning: Commit message exceeds 100 characters"
+    echo "   Please keep the first line under 100 characters."
+fi
+
+# Check if message follows conventional commits pattern
+CONVENTIONAL_PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|wip|hotfix|deps)(\(.+\))?!?: .+"
+
+if ! echo "$COMMIT_MSG" | head -1 | grep -qE "$CONVENTIONAL_PATTERN"; then
+    echo "❌ Invalid commit message format!"
+    echo ""
+    echo "Please use Conventional Commits format:"
+    echo "  <type>(<scope>): <description>"
+    echo ""
+    echo "Valid types:"
+    echo "  feat     - New feature"
+    echo "  fix      - Bug fix"
+    echo "  docs     - Documentation"
+    echo "  style    - Formatting (no code change)"
+    echo "  refactor - Code refactoring"
+    echo "  perf     - Performance improvement"
+    echo "  test     - Adding tests"
+    echo "  build    - Build system changes"
+    echo "  ci       - CI/CD changes"
+    echo "  chore    - Maintenance tasks"
+    echo "  revert   - Reverting changes"
+    echo "  hotfix   - Critical hotfix"
+    echo "  deps     - Dependency updates"
+    echo ""
+    echo "Examples:"
+    echo "  feat(auth): add JWT refresh token support"
+    echo "  fix(clients): resolve pagination issue"
+    echo "  docs(api): update endpoint documentation"
+    echo ""
+    exit 1
+fi
+
+echo "✅ Commit message is valid!"
+exit 0

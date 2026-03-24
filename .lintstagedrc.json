@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/lint-staged",
+  "*.{ts,tsx,js,jsx}": [
+    "eslint --fix",
+    "prettier --write"
+  ],
+  "*.{json,jsonc}": [
+    "prettier --write"
+  ],
+  "*.{md,mdx}": [
+    "prettier --write"
+  ],
+  "*.{css,scss,sass,less}": [
+    "prettier --write",
+    "stylelint --fix"
+  ],
+  "*.{yaml,yml}": [
+    "prettier --write"
+  ],
+  "*.{sql}": [
+    "prettier --write"
+  ],
+  "**/*.prisma": [
+    "prisma format"
+  ]
+}

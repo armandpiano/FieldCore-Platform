@@ -1,0 +1,70 @@
+# ============================================
+# FieldCore Production Environment
+# ============================================
+# Production uses managed services (RDS, ElastiCache, S3)
+# This compose is for the application containers only
+# ============================================
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.api
+      args:
+        NODE_ENV: production
+    container_name: fieldcore-api
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      # Managed Database (AWS RDS, Azure SQL, etc.)
+      DATABASE_HOST: ${RDS_HOST}
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${RDS_DATABASE}
+      DATABASE_USER: ${RDS_USER}
+      DATABASE_PASSWORD: ${RDS_PASSWORD}
+      DATABASE_SSL: "true"
+      # Managed Redis (AWS ElastiCache, etc.)
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      # AWS S3
+      S3_ENDPOINT: https://s3.${AWS_REGION}.amazonaws.com
+      S3_ACCESS_KEY: ${AWS_ACCESS_KEY_ID}
+      S3_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${AWS_REGION}
+      # CORS
+      CORS_ORIGIN: ${PRODUCTION_DOMAIN}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - fieldcore-prod-network
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.web
+      args:
+        NODE_ENV: production
+        NEXT_PUBLIC_API_URL: https://api.${PRODUCTION_DOMAIN}
+        NEXT_PUBLIC_APP_URL: https://${PRODUCTION_DOMAIN}
+    container_name: fieldcore-web
+    restart: always
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.${PRODUCTION_DOMAIN}
+      NEXT_PUBLIC_APP_URL: https://${PRODUCTION_DOMAIN}
+    networks:
+      - fieldcore-prod-network
+
+networks:
+  fieldcore-prod-network:
+    driver: bridge

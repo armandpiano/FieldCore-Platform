@@ -1,0 +1,232 @@
+version: '3.8'
+
+# ============================================
+# FieldCore Platform - Docker Compose
+# ============================================
+# Local Development & Staging Environment
+# 
+# Services:
+#   - PostgreSQL: Primary database
+#   - Redis: Cache, sessions, queues
+#   - MinIO: S3-compatible object storage
+#   - API: NestJS backend
+#   - Web: Next.js frontend
+#   - Nginx: Reverse proxy / load balancer
+
+services:
+  # ============================================
+  # PostgreSQL Database
+  # ============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: fieldcore-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fieldcore}
+      POSTGRES_USER: ${POSTGRES_USER:-fieldcore}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fieldcore_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fieldcore} -d ${POSTGRES_DB:-fieldcore}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fieldcore-network
+
+  # ============================================
+  # Redis Cache & Sessions
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: fieldcore-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fieldcore-network
+
+  # ============================================
+  # MinIO - S3 Compatible Storage
+  # ============================================
+  minio:
+    image: minio/minio:latest
+    container_name: fieldcore-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_secret}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fieldcore-network
+
+  # ============================================
+  # Create MinIO Buckets (Initial Setup)
+  # ============================================
+  minio-init:
+    image: minio/mc:latest
+    container_name: fieldcore-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin_secret};
+      mc mb local/fieldcore-evidence --ignore-existing;
+      mc mb local/fieldcore-documents --ignore-existing;
+      mc anonymous set download local/fieldcore-evidence;
+      mc anonymous set download local/fieldcore-documents;
+      exit 0;
+      "
+    networks:
+      - fieldcore-network
+
+  # ============================================
+  # NestJS API
+  # ============================================
+  api:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/Dockerfile.api
+      args:
+        NODE_ENV: ${NODE_ENV:-development}
+    container_name: fieldcore-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${API_PORT:-3001}
+      # Database
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${POSTGRES_DB:-fieldcore}
+      DATABASE_USER: ${POSTGRES_USER:-fieldcore}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-fieldcore_secret}
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-your_super_secret_jwt_key_change_in_production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your_super_secret_refresh_key_change_in_production}
+      # MinIO / S3
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin_secret}
+      S3_BUCKET: fieldcore-evidence
+      S3_REGION: ${S3_REGION:-us-east-1}
+      # CORS
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "${API_PORT:-3001}:${API_PORT:-3001}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${API_PORT:-3001}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - fieldcore-network
+
+  # ============================================
+  # Next.js Web Application
+  # ============================================
+  web:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/Dockerfile.web
+      args:
+        NODE_ENV: ${NODE_ENV:-development}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    container_name: fieldcore-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - fieldcore-network
+
+  # ============================================
+  # Nginx Reverse Proxy (Production)
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: fieldcore-nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx_logs:/var/log/nginx
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${NGINX_SSL_PORT:-443}:443"
+    depends_on:
+      - web
+      - api
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - fieldcore-network
+    profiles:
+      - production
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  fieldcore-network:
+    driver: bridge
+    name: fieldcore-network
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  postgres_data:
+    name: fieldcore-postgres-data
+  redis_data:
+    name: fieldcore-redis-data
+  minio_data:
+    name: fieldcore-minio-data
+  nginx_logs:
+    name: fieldcore-nginx-logs

@@ -1,0 +1,31 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Docker data volumes
+postgres_data/
+redis_data/
+minio_data/
+nginx_logs/
+
+# SSL certificates (add your certs here)
+ssl/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build artifacts
+.next/
+dist/

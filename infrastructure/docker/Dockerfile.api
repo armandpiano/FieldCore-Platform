@@ -1,0 +1,77 @@
+# ============================================
+# FieldCore API - Dockerfile
+# NestJS Backend
+# ============================================
+
+# ---- Base Stage ----
+FROM node:20-alpine AS base
+
+# Install dependencies for native modules
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    curl
+
+WORKDIR /app
+
+# Copy package files
+COPY apps/api/package*.json ./
+
+# ---- Dependencies Stage ----
+FROM base AS deps
+
+RUN npm ci --only=production --ignore-scripts
+
+# ---- Development Dependencies ----
+FROM base AS deps-production
+
+RUN npm ci --ignore-scripts
+
+# ---- Builder Stage ----
+FROM base AS builder
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Generate Prisma Client
+RUN npx prisma generate
+
+# Build application
+RUN npm run build --workspace=apps/api
+
+# ---- Production Stage ----
+FROM base AS production
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001
+
+WORKDIR /app
+
+# Copy node_modules from builder
+COPY --from=deps-production /app/node_modules ./node_modules
+
+# Copy built application
+COPY --from=builder /app/apps/api/dist ./dist
+COPY --from=builder /app/apps/api/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+# Copy package files for script access
+COPY apps/api/package*.json ./
+
+# Set ownership
+RUN chown -R nestjs:nodejs /app
+
+# Switch to non-root user
+USER nestjs
+
+# Expose port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Start application
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
